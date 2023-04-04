@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 from . info import *
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,8 +29,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+#STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
 STATICFILES_DIRS = [
-    "C:\\Users\\bisha\\Desktop\\cis400\\static"
+    os.path.join(BASE_DIR, 'static/')
 ]
 
 # Application definition
