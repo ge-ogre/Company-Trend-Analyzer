@@ -10,22 +10,28 @@
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <title></title>
+        <title>Company-Trend-Analyzer</title>
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+       
+        <!-- Bootstrap Base Stylesheet -->
+        <link rel="stylesheet" href="{% static 'Bootstrap5-2/css/bootstrap.min.css' %}">
+        
+        <!-- Bootstrap Base Script -->
+        <script src="{% static 'Bootstrap5-2/js/bootstrap.min.js' %}"></script>
+        
+        <!-- Personal CSS File -->
         <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}">     
     </head>
     <body>
+        <h1> Company Trends </h1>
         <!--[if lt IE 7]>
             <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
         <![endif]-->
-        <form action="" class="search-bar">
-            <input type="search" name="search" pattern=".*\S.*" required>
-            <button class="search-btn" type="submit">
-                <span>Search</span>
-            </button>
-        </form>
 
-        <script src="" async defer></script>
+        <form action="" class="search-bar">
+            <input type="search" class="form-control form-control-lg" name="ticker" id="ticker" pattern=".*\S.*" required placeholder="Company Ticker">
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
     </body>
 </html>
