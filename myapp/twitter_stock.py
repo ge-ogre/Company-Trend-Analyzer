@@ -1,15 +1,9 @@
 import requests
-import csv
 import re
 import json
+import sys
 from requests.structures import CaseInsensitiveDict
 
-"""
-This function takes in a stock ticker and a bearer token as parameters 
-and uses the Twitter API to search for recent tweets containing the stock ticker. 
-It returns the first 100 filtered tweets which contain the stock ticker, 
-and various metadata such as the creation date, author ID, and public metrics.
-"""
 def get_initial_tweets(stock_ticker, bearer_token):
     query = f"\"{stock_ticker}\" lang:en"
     ticker_regex = re.compile(r'\$[A-Za-z]+')
@@ -48,13 +42,13 @@ def get_initial_tweets(stock_ticker, bearer_token):
             break
 
     # Return only the first 100 filtered tweets
-    return filtered_tweets[:100]
+    filtered_tweets_json = [
+        {k: tweet[k] for k in ['author_id', 'text', 'created_at', 'public_metrics'] if k in tweet}
+        for tweet in filtered_tweets[:100]
+    ]
 
-"""
-This function takes in a stock ticker and a bearer token as parameters 
-and creates a filtered stream rule for the given stock ticker using the Twitter API. 
-The rule is used to filter real-time tweets from the Twitter API stream that contain the given stock ticker. 
-"""
+    return filtered_tweets_json
+
 def create_filtered_stream_rule(stock_ticker, bearer_token):
     url = "https://api.twitter.com/2/tweets/search/stream/rules"
     headers = {
@@ -71,10 +65,6 @@ def create_filtered_stream_rule(stock_ticker, bearer_token):
         print(f"Error {resp.status_code}: {resp.text}")
         raise ValueError("Failed to create stream rule")
 
-"""
-This function takes in a bearer token as a parameter 
-and deletes all filtered stream rules that have been created using the Twitter API.
-"""
 def delete_all_stream_rules(bearer_token):
     url = "https://api.twitter.com/2/tweets/search/stream/rules"
     headers = {
@@ -92,84 +82,53 @@ def delete_all_stream_rules(bearer_token):
         if resp.status_code != 200:
             print(f"Error {resp.status_code}: {resp.text}")
             raise ValueError("Failed to delete stream rules")
-        
-"""
-This function takes in a stock ticker, a bearer token, and an output filename as parameters.
-It opens a connection to the Twitter API stream 
-and filters real-time tweets based on the filtered stream rule for the given stock ticker.
-It then writes the filtered tweets to a CSV file with the specified output filename.
-"""
-def stream_filtered_tweets(stock_ticker, bearer_token, output_filename):
+
+def stream_filtered_tweets(stock_ticker, bearer_token):
     url = "https://api.twitter.com/2/tweets/search/stream"
     headers = {
         "Accept": "application/json",
         "Authorization": f"Bearer {bearer_token}"
     }
-
     params = {"tweet.fields": "created_at,public_metrics,author_id"}
     ticker_regex = re.compile(r'\$[A-Za-z]+')
 
-    with open(output_filename, mode='a', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['author_id', 'text', 'created_at', 'public_metrics']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    response = requests.get(url, headers=headers, params=params, stream=True)
 
-        response = requests.get(url, headers=headers, params=params, stream=True)
+    if response.status_code != 200:
+        print(f"Error {response.status_code}: {response.text}")
+        raise ValueError("Failed to fetch tweets")
 
-        if response.status_code != 200:
-            print(f"Error {response.status_code}: {response.text}")
-            raise ValueError("Failed to fetch tweets")
-
-        for line in response.iter_lines():
-            if line:
-                tweet_data = json.loads(line)
-                tweet = tweet_data.get("data")
-                if tweet:
-                    if len(ticker_regex.findall(tweet['text'])) == 1 and f"${stock_ticker}" in tweet['text']:
-                        filtered_tweet = {k: tweet[k] for k in fieldnames if k in tweet}
-                        writer.writerow(filtered_tweet)
-                        csvfile.flush()
-
-"""
-This function takes in a list of tweets and a filename as parameters 
-and writes the tweets to a CSV file with the specified filename. 
-The CSV file contains the metadata for each tweet, such as the author ID, text, creation date, and public metrics.
-"""
-def write_tweets_to_csv(tweets, filename):
-    with open(filename, mode='w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['author_id', 'text', 'created_at', 'public_metrics']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-        writer.writeheader()
-        for tweet in tweets:
-            filtered_tweet = {k: tweet[k] for k in fieldnames if k in tweet}
-            writer.writerow(filtered_tweet)
+    for line in response.iter_lines():
+        if line:
+            tweet_data = json.loads(line)
+            tweet = tweet_data.get("data")
+            if tweet:
+                if len(ticker_regex.findall(tweet['text'])) == 1 and f"${stock_ticker}" in tweet['text']:
+                    filtered_tweet = {k: tweet[k] for k in ['author_id', 'text', 'created_at', 'public_metrics'] if k in tweet}
+                    print(filtered_tweet)
 
 
-"""
-This function takes in a stock ticker and a bearer token as parameters 
-and uses the previous five functions to fetch and stream tweets containing the stock ticker 
-from the Twitter API. It first fetches the initial 100 tweets using the get_initial_tweets function 
-and writes them to a CSV file. It then deletes any existing stream rules using 
-the delete_all_stream_rules function and creates a new filtered stream rule 
-for the given stock ticker using the create_filtered_stream_rule function. 
-Finally, it uses the stream_filtered_tweets function to continuously stream real-time tweets containing
-the given stock ticker and write them to the same CSV file.
-"""
 def fetch_and_stream_tweets(stock_ticker, bearer_token):
-    tweets = get_initial_tweets(stock_ticker, bearer_token)
-    output_filename = f"{stock_ticker}_tweets.csv"
-    write_tweets_to_csv(tweets, output_filename)
-    print(f"Initial tweets about {stock_ticker} have been saved to {output_filename}")
+    initial_tweets = get_initial_tweets(stock_ticker, bearer_token)
+    print(f"Initial tweets about {stock_ticker}:")
+    for tweet in initial_tweets:
+        print(tweet)
 
     delete_all_stream_rules(bearer_token)
     create_filtered_stream_rule(stock_ticker, bearer_token)
 
+    print(f"\nStreaming live tweets about {stock_ticker}:")
     try:
-        stream_filtered_tweets(stock_ticker, bearer_token, output_filename)
+        stream_filtered_tweets(stock_ticker, bearer_token)
     except KeyboardInterrupt:
         print("\nStream stopped.")
 
-# if __name__ == "__main__":
-#     bearer_token = "AAAAAAAAAAAAAAAAAAAAADpLZgEAAAAA58cu%2Bxrb8qCNT57oA%2FNYwbjNWvs%3DgdnlVLtp4RgYXXpMbBSYSlmp69CfrW81pH4mCg6zwLTe1VLmWF"
-#     stock_ticker = input("Enter the stock ticker of the company: ")
-#     fetch_and_stream_tweets(stock_ticker, bearer_token)
+
+
+def main(stock_ticker, bearer_token):
+    fetch_and_stream_tweets(stock_ticker, bearer_token)
+
+if __name__ == "__main__":
+    bearer_token = "AAAAAAAAAAAAAAAAAAAAADpLZgEAAAAA58cu%2Bxrb8qCNT57oA%2FNYwbjNWvs%3DgdnlVLtp4RgYXXpMbBSYSlmp69CfrW81pH4mCg6zwLTe1VLmWF"
+    stock_ticker = "AAPL"
+    main(stock_ticker, bearer_token)
