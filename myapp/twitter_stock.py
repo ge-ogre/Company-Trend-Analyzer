@@ -4,6 +4,41 @@ import json
 import sys
 from requests.structures import CaseInsensitiveDict
 from .models import Tweet
+import nltk
+from nltk.stem import WordNetLemmatizer
+
+def get_sentiment_analysis_score(tweet_text):
+    tt = nltk.TweetTokenizer()
+    tokens = tt.tokenize(tweet_text)
+    lemmatizer = WordNetLemmatizer()
+    sentiments = []
+    for token in range(len(tokens)):
+        lemma = lemmatizer.lemmatize(tokens[token])
+        synsets = list(swn.senti_synsets(lemma))
+        sentiments.append([])
+        if synsets:
+            for synset in range(len(synsets)):
+                sentiment_score = synsets[synset].pos_score() - synsets[synset].neg_score()
+                sentiments[token].append(sentiment_score)
+        else:
+            # if the token is not in SentiWordNet, ignore it
+            pass
+    
+    # Calculate the total sentiment score for the tweet
+    total_sentiment = 0
+    num_tokens_with_sentiment = 0
+    for token_sentiments in sentiments:
+        if token_sentiments:
+            total_sentiment += sum(token_sentiments)
+            num_tokens_with_sentiment += 1
+
+    # Calculate the average sentiment score for the tweet
+    if num_tokens_with_sentiment > 0:
+        avg_sentiment = total_sentiment / num_tokens_with_sentiment
+        return avg_sentiment
+    else:
+        return 0
+
 
 def get_initial_tweets(stock_ticker, bearer_token):
     query = f"\"{stock_ticker}\" lang:en"
@@ -106,7 +141,7 @@ def stream_filtered_tweets(stock_ticker, bearer_token):
             if tweet:
                 if len(ticker_regex.findall(tweet['text'])) == 1 and f"${stock_ticker}" in tweet['text']:
                     filtered_tweet = {k: tweet[k] for k in ['author_id', 'text', 'created_at', 'public_metrics'] if k in tweet}
-                    new_tweet = Tweet.objects.create(tweet_obj=tweet)
+                    new_tweet = Tweet.objects.create(tweet_obj=tweet, sa_score=get_sentiment_analysis_score(filtered_tweet.text))
                     new_tweet.save()
 
 
@@ -114,7 +149,7 @@ def fetch_and_stream_tweets(stock_ticker, bearer_token):
     initial_tweets = get_initial_tweets(stock_ticker, bearer_token)
     print(f"Initial tweets about {stock_ticker}:")
     for tweet in initial_tweets:
-        new_tweet = Tweet.objects.create(tweet_obj=tweet)
+        new_tweet = Tweet.objects.create(tweet_obj=tweet, sa_score=get_sentiment_analysis_score(tweet.text))
         new_tweet.save()
 
     delete_all_stream_rules(bearer_token)
