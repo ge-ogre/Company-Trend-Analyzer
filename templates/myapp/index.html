@@ -25,12 +25,10 @@
     </head>
     <body>
         <h1> Company Trends </h1>
-        <!--[if lt IE 7]>
-            <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
-        <![endif]-->
 
-        <form action="" class="search-bar">
-            <input type="search" class="form-control form-control-lg" name="ticker" id="ticker" pattern=".*\S.*" required placeholder="Company Ticker">
+        <form action="/cta" class="search-bar" method="post">
+            {% csrf_token %}
+            <input type="text" class="form-control form-control-lg" name="ticker" id="ticker" pattern=".*\S.*" required placeholder="Company Ticker">
             <button type="submit" class="btn btn-primary">Submit</button>
         </form>
     </body>

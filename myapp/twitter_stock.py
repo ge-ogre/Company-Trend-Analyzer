@@ -3,6 +3,7 @@ import re
 import json
 import sys
 from requests.structures import CaseInsensitiveDict
+from .models import Tweet
 
 def get_initial_tweets(stock_ticker, bearer_token):
     query = f"\"{stock_ticker}\" lang:en"
@@ -105,14 +106,16 @@ def stream_filtered_tweets(stock_ticker, bearer_token):
             if tweet:
                 if len(ticker_regex.findall(tweet['text'])) == 1 and f"${stock_ticker}" in tweet['text']:
                     filtered_tweet = {k: tweet[k] for k in ['author_id', 'text', 'created_at', 'public_metrics'] if k in tweet}
-                    print(filtered_tweet)
+                    new_tweet = Tweet.objects.create(tweet_obj=tweet)
+                    new_tweet.save()
 
 
 def fetch_and_stream_tweets(stock_ticker, bearer_token):
     initial_tweets = get_initial_tweets(stock_ticker, bearer_token)
     print(f"Initial tweets about {stock_ticker}:")
     for tweet in initial_tweets:
-        print(tweet)
+        new_tweet = Tweet.objects.create(tweet_obj=tweet)
+        new_tweet.save()
 
     delete_all_stream_rules(bearer_token)
     create_filtered_stream_rule(stock_ticker, bearer_token)
