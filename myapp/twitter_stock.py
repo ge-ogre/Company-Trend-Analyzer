@@ -144,15 +144,24 @@ def stream_filtered_tweets(stock_ticker, bearer_token):
             if tweet:
                 if len(ticker_regex.findall(tweet['text'])) == 1 and f"${stock_ticker}" in tweet['text']:
                     filtered_tweet = {k: tweet[k] for k in ['author_id', 'text', 'created_at', 'public_metrics'] if k in tweet}
-                    new_tweet = Tweet.objects.create(tweet_obj=tweet, sa_score=get_sentiment_analysis_score(filtered_tweet["text"]))
+                    new_tweet = Tweet.objects.create(
+                        tweet_obj=tweet, 
+                        sa_score=get_sentiment_analysis_score(filtered_tweet["text"]),
+                        ticker = stock_ticker
+                        )
                     new_tweet.save()
+                    print("New tweet")
 
 
 def fetch_and_stream_tweets(stock_ticker, bearer_token):
     initial_tweets = get_initial_tweets(stock_ticker, bearer_token)
     print(f"Initial tweets about {stock_ticker}:")
     for tweet in initial_tweets:
-        new_tweet = Tweet.objects.create(tweet_obj=tweet, sa_score=get_sentiment_analysis_score(tweet["text"]))
+        new_tweet = Tweet.objects.create(
+            tweet_obj=tweet, 
+            sa_score=get_sentiment_analysis_score(tweet["text"]),
+            ticker = stock_ticker
+            )
         new_tweet.save()
 
     delete_all_stream_rules(bearer_token)
@@ -164,7 +173,15 @@ def fetch_and_stream_tweets(stock_ticker, bearer_token):
     except KeyboardInterrupt:
         print("\nStream stopped.")
 
-
+def get_sentiment_analysis_from_x_most_recent_tweets(stock_ticker, num_tweets):
+    tweets = Tweet.objects.filter(ticker=stock_ticker).order_by('-created_at')[:num_tweets]
+    neg, pos = 0, 0
+    for tweet in tweets:
+        if tweet.sa_score < 0:
+            neg += 1
+        elif tweet.sa_score > 0:
+            pos += 1
+    return neg, pos
 
 def main(stock_ticker, bearer_token):
     fetch_and_stream_tweets(stock_ticker, bearer_token)
