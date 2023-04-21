@@ -1,9 +1,11 @@
 import requests
 import re
 import json
+import time
+import datetime
 import sys
 from requests.structures import CaseInsensitiveDict
-from .models import Tweet
+from .models import Tweet, Stock
 import nltk
 from nltk.stem import WordNetLemmatizer
 nltk.download('wordnet')
@@ -60,6 +62,11 @@ def get_initial_tweets(stock_ticker, bearer_token):
         }
 
         resp = requests.get(url, headers=headers)
+
+        if resp.status_code == 429:
+            print("Rate limited, waiting 15 minutes")
+            time.sleep(15 * 60)
+            continue
 
         if resp.status_code != 200:
             print(f"Error {resp.status_code}: {resp.text}")
@@ -123,6 +130,7 @@ def delete_all_stream_rules(bearer_token):
             raise ValueError("Failed to delete stream rules")
 
 def stream_filtered_tweets(stock_ticker, bearer_token):
+    stock = Stock.objects.get(ticker=stock_ticker)
     url = "https://api.twitter.com/2/tweets/search/stream"
     headers = {
         "Accept": "application/json",
@@ -132,6 +140,11 @@ def stream_filtered_tweets(stock_ticker, bearer_token):
     ticker_regex = re.compile(r'\$[A-Za-z]+')
 
     response = requests.get(url, headers=headers, params=params, stream=True)
+
+    if response.status_code == 429:
+        print(f"Error {response.status_code}: {response.text}")
+        print("Rate limited, waiting 15 minutes")
+        time.sleep(1000000)
 
     if response.status_code != 200:
         print(f"Error {response.status_code}: {response.text}")
@@ -150,10 +163,17 @@ def stream_filtered_tweets(stock_ticker, bearer_token):
                         ticker = stock_ticker
                         )
                     new_tweet.save()
+                    stock.positive_tweets += 1 if new_tweet.sa_score > 0 else 0
+                    stock.negative_tweets += 1 if new_tweet.sa_score < 0 else 0
+                    stock.save()
                     print("New tweet")
 
 
 def fetch_and_stream_tweets(stock_ticker, bearer_token):
+    if not Stock.objects.filter(ticker=stock_ticker).exists():
+        new_stock = Stock.objects.create(ticker=stock_ticker)
+        new_stock.save()
+    stock = Stock.objects.get(ticker=stock_ticker)
     initial_tweets = get_initial_tweets(stock_ticker, bearer_token)
     print(f"Initial tweets about {stock_ticker}:")
     for tweet in initial_tweets:
@@ -163,25 +183,19 @@ def fetch_and_stream_tweets(stock_ticker, bearer_token):
             ticker = stock_ticker
             )
         new_tweet.save()
+        stock.positive_tweets += 1 if new_tweet.sa_score > 0 else 0
+        stock.negative_tweets += 1 if new_tweet.sa_score < 0 else 0
+        stock.save()
 
     delete_all_stream_rules(bearer_token)
     create_filtered_stream_rule(stock_ticker, bearer_token)
 
     print(f"\nStreaming live tweets about {stock_ticker}:")
+    
     try:
         stream_filtered_tweets(stock_ticker, bearer_token)
     except KeyboardInterrupt:
         print("\nStream stopped.")
-
-def get_sentiment_analysis_from_x_most_recent_tweets(stock_ticker, num_tweets):
-    tweets = Tweet.objects.filter(ticker=stock_ticker).order_by('-created_at')[:num_tweets]
-    neg, pos = 0, 0
-    for tweet in tweets:
-        if tweet.sa_score < 0:
-            neg += 1
-        elif tweet.sa_score > 0:
-            pos += 1
-    return neg, pos
 
 def main(stock_ticker, bearer_token):
     fetch_and_stream_tweets(stock_ticker, bearer_token)

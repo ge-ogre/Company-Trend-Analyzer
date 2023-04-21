@@ -10,10 +10,16 @@
         <link rel="stylesheet" href="">
     </head>
     <body>
-
-
-        <h1>{{tweets}}</h1>
         
+        <h1>Positive: {{pos}}</h1>
+        <h1>Negative: {{neg}}</h1>
+        
+        <script>
+            setTimeout(function() {
+                location.reload();
+            }, 10)
+        </script>
+
         <script src="" async defer></script>
     </body>
 </html>
