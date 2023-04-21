@@ -8,4 +8,3 @@ urlpatterns = [
     path('cta', views.cta, name ="cta"),
 
 ]
-
