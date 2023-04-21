@@ -43,7 +43,6 @@ def get_sentiment_analysis_score(tweet_text):
     else:
         return 0
 
-
 def get_initial_tweets(stock_ticker, bearer_token):
     query = f"\"{stock_ticker}\" lang:en"
     ticker_regex = re.compile(r'\$[A-Za-z]+')
