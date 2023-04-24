@@ -30,6 +30,15 @@
             {% csrf_token %}
             <input type="text" class="form-control form-control-lg" name="ticker" id="ticker" pattern=".*\S.*" required placeholder="Company Ticker">
             <button type="submit" class="btn btn-primary">Submit</button>
+            {% if messages %}
+            <script>
+                alert("Invalid Stock Symbol");
+            </script>
+            
+    {% endif %}
+    
+{% for message in messages %}
+{% endfor %}
         </form>
     </body>
 </html>
