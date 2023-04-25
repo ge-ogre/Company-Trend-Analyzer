@@ -1,5 +1,11 @@
 <!DOCTYPE html>
 
+<!-- Include jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Load the HTMX JS: -->
+<script src="templates\myapp\htmx.min.js" defer></script>
+
+
 <html>
     <head>
         <meta charset="utf-8">
@@ -13,19 +19,31 @@
     <body>
         <h1>Company Trends</h1>
         <a href="{{stockUrl}}">{{ticker}} Live Stock Graph</a> 
-        
-        <h1>Positive: {{pos}}</h1>
-        <h1>Negative: {{neg}}</h1>
-        <div>
-            {{ graph| safe}}
+        <div hx-get="/cta" hx-trigger="every 10s">
+            <h1>Positive: {{pos}}</h1>
+            <h1>Negative: {{neg}}</h1>
+            <div>
+                {{ graph| safe}}
+            </div>
         </div>
-        
-        <script>
-            setTimeout(function() {
-                location.reload();
-            }, 30000)
-        </script>
+        <!-- JavaScript to make AJAX requests and update the content -->
+        {% comment %} <script>
+            function updateData() {
+            // Get the ticker from the HTML template
+            var ticker = "{{ ticker }}";
 
-        <script src="" async defer></script>
+            $.ajax({
+                url: `cta/?ticker=${ticker}`,
+                method: 'GET',
+                success: function(data) {
+                // Update the content of the elements with new data
+                    $('#positive-tweets').text(`Positive: ${data.pos}`);
+                    $('#negative-tweets').text(`Negative: ${data.neg}`);
+                    $('#graph').html(data.graph);
+                    }
+                });
+            }
+            setInterval(updateData, 1000)
+        </script> {% endcomment %}
     </body>
 </html>
