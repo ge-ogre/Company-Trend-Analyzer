@@ -52,7 +52,7 @@ def get_initial_tweets(stock_ticker, bearer_token):
     next_token = None
 
     while len(filtered_tweets) < 100:
-        url = f"https://api.twitter.com/2/tweets/search/recent?query={query}&max_results=100&tweet.fields=created_at,public_metrics,author_id"
+        url = f"https://api.twitter.com/2/tweets/search/recent?query={query}&max_results=100&tweet.fields=created_at,public_metrics,author_id&expansions=author_id&user.fields=username"
         if next_token:
             url += f"&next_token={next_token}"
 
@@ -74,6 +74,10 @@ def get_initial_tweets(stock_ticker, bearer_token):
 
         data = resp.json()
         all_tweets = data["data"]
+        users = data["includes"]["users"]
+
+        author_id_to_username = {user["id"]: user["username"] for user in users}
+
         next_token = data.get("meta", {}).get("next_token", None)
 
         # Filter tweets containing only the input stock ticker
@@ -81,6 +85,10 @@ def get_initial_tweets(stock_ticker, bearer_token):
             tweet for tweet in all_tweets
             if len(ticker_regex.findall(tweet['text'])) == 1 and f"${stock_ticker}" in tweet['text']
         ]
+
+        for tweet in current_filtered_tweets:
+            tweet["username"] = author_id_to_username[tweet["author_id"]]
+
         filtered_tweets.extend(current_filtered_tweets)
 
         # Stop fetching if there are no more tweets available
@@ -89,11 +97,12 @@ def get_initial_tweets(stock_ticker, bearer_token):
 
     # Return only the first 100 filtered tweets
     filtered_tweets_json = [
-        {k: tweet[k] for k in ['author_id', 'text', 'created_at', 'public_metrics'] if k in tweet}
+        {k: tweet[k] for k in ['author_id', 'text', 'created_at', 'public_metrics', 'username'] if k in tweet}
         for tweet in filtered_tweets[:100]
     ]
 
     return filtered_tweets_json
+
 
 def create_filtered_stream_rule(stock_ticker, bearer_token):
     url = "https://api.twitter.com/2/tweets/search/stream/rules"
@@ -128,6 +137,14 @@ def delete_all_stream_rules(bearer_token):
         if resp.status_code != 200:
             print(f"Error {resp.status_code}: {resp.text}")
             raise ValueError("Failed to delete stream rules")
+        
+def map_author_id_to_username(includes):
+    author_id_to_username = {}
+    if includes:
+        for user in includes.get("users", []):
+            author_id_to_username[user["id"]] = user["username"]
+    return author_id_to_username
+
 
 def stream_filtered_tweets(stock_ticker, bearer_token):
     stock = Stock.objects.get(ticker=stock_ticker)
@@ -136,7 +153,12 @@ def stream_filtered_tweets(stock_ticker, bearer_token):
         "Accept": "application/json",
         "Authorization": f"Bearer {bearer_token}"
     }
-    params = {"tweet.fields": "created_at,public_metrics,author_id"}
+    params = {
+    "tweet.fields": "created_at,public_metrics,author_id",
+    "expansions": "author_id",
+    "user.fields": "username"
+    }
+
     ticker_regex = re.compile(r'\$[A-Za-z]+')
 
     response = requests.get(url, headers=headers, params=params, stream=True)
@@ -154,14 +176,20 @@ def stream_filtered_tweets(stock_ticker, bearer_token):
         if line:
             tweet_data = json.loads(line)
             tweet = tweet_data.get("data")
+            includes = tweet_data.get("includes", {})
+
             if tweet:
+                author_id_to_username = map_author_id_to_username(includes)
                 if len(ticker_regex.findall(tweet['text'])) == 1 and f"${stock_ticker}" in tweet['text']:
                     filtered_tweet = {k: tweet[k] for k in ['author_id', 'text', 'created_at', 'public_metrics'] if k in tweet}
+                    filtered_tweet["username"] = author_id_to_username.get(filtered_tweet["author_id"], "")
+
                     new_tweet = Tweet.objects.create(
-                        tweet_obj=tweet, 
-                        sa_score=get_sentiment_analysis_score(filtered_tweet["text"]),
-                        ticker = stock_ticker
-                        )
+                    tweet_obj=json.dumps(tweet),  # Save the tweet as a JSON string
+                    sa_score=get_sentiment_analysis_score(filtered_tweet["text"]),
+                    ticker=stock_ticker,
+                    username=filtered_tweet["username"]
+                    )
                     new_tweet.save()
                     stock.positive_tweets += 1 if new_tweet.sa_score > 0 else 0
                     stock.negative_tweets += 1 if new_tweet.sa_score < 0 else 0
@@ -178,10 +206,11 @@ def fetch_and_stream_tweets(stock_ticker, bearer_token):
     print(f"Initial tweets about {stock_ticker}:")
     for tweet in initial_tweets:
         new_tweet = Tweet.objects.create(
-            tweet_obj=tweet, 
+            tweet_obj=json.dumps(tweet),  # Save the tweet as a JSON string
             sa_score=get_sentiment_analysis_score(tweet["text"]),
-            ticker = stock_ticker
-            )
+            ticker=stock_ticker,
+            username=tweet["username"]
+        )
         new_tweet.save()
         stock.positive_tweets += 1 if new_tweet.sa_score > 0 else 0
         stock.negative_tweets += 1 if new_tweet.sa_score < 0 else 0

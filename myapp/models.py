@@ -4,6 +4,7 @@ class Tweet(models.Model):
     tweet_obj = models.TextField()
     sa_score = models.FloatField(default=0)
     ticker = models.TextField()
+    username = models.CharField(max_length=255, default='harry') 
 
 class Stock(models.Model):
     ticker = models.TextField()
