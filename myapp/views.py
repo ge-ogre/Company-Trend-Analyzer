@@ -58,7 +58,8 @@ def sentiment_analysis(request, ticker):
                 }
     # invalid ticker
     else:
-        messages.error(request, 'Invalid ticker symbol. Please try again.')
+        messages.error(request, 'True')
+        redirect('home')
         return None
     
 def fetch_stock_chart_data(ticker):
