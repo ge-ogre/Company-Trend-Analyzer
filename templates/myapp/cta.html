@@ -4,7 +4,9 @@
 <!-- Include jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <!-- Load the HTMX JS: -->
-<script src="templates\myapp\htmx.min.js" defer></script>
+<script src="{% static 'js/htmx.min.js' %}" defer></script>
+
+
 
 <!-- Include Highcharts library -->
 <script src="https://code.highcharts.com/highcharts.js"></script>
@@ -27,13 +29,30 @@
         
 
         <div id="stock-chart" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
-        <div hx-get="/cta" hx-trigger="every 10s">
-            <h1>Positive Tweets About {{ticker}} : {{pos}}</h1>
-            <h1>Negative Tweets About {{ticker}} : {{neg}}</h1>
-            <div id="pie-chart-container">
-                {{ graph| safe}}
-            </div>
-        </div>
+        <div id="sentiment">
+          <h1>Positive: <span id="positive">{{pos}}</span></h1>
+          <h1>Negative: <span id="negative">{{neg}}</span></h1>
+          <div id="pie-chart">
+              {{ graph| safe}}
+          </div>
+      </div>
+      
+      <script>
+        $(document).ready(function() {
+            function updateSentiment() {
+                $.get("/update_sentiment/", {"ticker": "{{ticker}}"}, function(data) {
+                    if (data.error === undefined) {
+                        $("#positive").text(data.pos);
+                        $("#negative").text(data.neg);
+                        $("#pie-chart").html(data.graph);
+                    }
+                });
+            }
+        
+            setInterval(updateSentiment, 3000); // Update every 3 seconds
+        });
+        </script>
+        
 
         <!-- Add the chart rendering script -->
         {% if dates and prices %}

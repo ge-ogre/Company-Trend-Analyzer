@@ -86,6 +86,15 @@ def fetch_stock_chart_data(ticker):
 
     return {'dates': dates[::-1], 'prices': prices[::-1], 'ticker': ticker}
 
+def update_sentiment(request):
+    if request.method == 'GET' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        ticker = request.GET.get('ticker')
+        sentiment_data = sentiment_analysis(request, ticker)
+        if sentiment_data is not None:
+            return JsonResponse(sentiment_data)
+    return JsonResponse({"error": "Invalid request"})
+
+
 def cta(request):
     context = {}
 
