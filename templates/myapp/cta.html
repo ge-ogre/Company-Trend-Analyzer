@@ -5,6 +5,11 @@
 <!-- Load the HTMX JS: -->
 <script src="templates\myapp\htmx.min.js" defer></script>
 
+<!-- Include Highcharts library -->
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
 
 <html>
     <head>
@@ -14,11 +19,19 @@
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="">
-       
     </head>
     <body>
         <h1>Company Trends</h1>
-        <a href="{{stockUrl}}">{{ticker}} Live Stock Graph</a> 
+        <!-- Display messages (e.g., for invalid ticker symbol) -->
+        {% if messages %}
+          <ul class="messages">
+            {% for message in messages %}
+              <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <div id="stock-chart" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
         <div hx-get="/cta" hx-trigger="every 10s">
             <h1>Positive: {{pos}}</h1>
             <h1>Negative: {{neg}}</h1>
@@ -26,24 +39,32 @@
                 {{ graph| safe}}
             </div>
         </div>
-        <!-- JavaScript to make AJAX requests and update the content -->
-        {% comment %} <script>
-            function updateData() {
-            // Get the ticker from the HTML template
-            var ticker = "{{ ticker }}";
 
-            $.ajax({
-                url: `cta/?ticker=${ticker}`,
-                method: 'GET',
-                success: function(data) {
-                // Update the content of the elements with new data
-                    $('#positive-tweets').text(`Positive: ${data.pos}`);
-                    $('#negative-tweets').text(`Negative: ${data.neg}`);
-                    $('#graph').html(data.graph);
-                    }
-                });
-            }
-            setInterval(updateData, 1000)
-        </script> {% endcomment %}
+        <!-- Add the chart rendering script -->
+        {% if dates and prices %}
+          <script>
+            var chart = new Highcharts.Chart({
+              chart: {
+                renderTo: 'stock-chart',
+                type: 'line'
+              },
+              title: {
+                text: 'Intraday Stock Price'
+              },
+              xAxis: {
+                categories: {{ dates|safe }}
+              },
+              yAxis: {
+                title: {
+                  text: 'Price'
+                }
+              },
+              series: [{
+                name: '{{ ticker }}',
+                data: {{ prices|safe }}
+              }]
+            });
+          </script>
+        {% endif %}
     </body>
 </html>

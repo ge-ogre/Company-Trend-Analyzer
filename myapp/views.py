@@ -15,55 +15,85 @@ import plotly.express as px
 def home(request):
     return render(request, "myapp/index.html")
 
-def cta(request):
-    if request.method == 'POST':
-        ticker = request.POST.get('ticker')
-        if isValidTicker(ticker):
-            #stock url for live stock data
-            stockUrl=f"https://finance.yahoo.com/chart/{ticker}/#eyJpbnRlcnZhbCI6NSwicGVyaW9kaWNpdHkiOjEsInRpbWVVbml0IjoibWludXRlIiwiY2FuZGxlV2lkdGgiOjc3LjUsImZsaXBwZWQiOmZhbHNlLCJ2b2x1bWVVbmRlcmxheSI6dHJ1ZSwiYWRqIjp0cnVlLCJjcm9zc2hhaXIiOnRydWUsImNoYXJ0VHlwZSI6ImxpbmUiLCJleHRlbmRlZCI6ZmFsc2UsIm1hcmtldFNlc3Npb25zIjp7fSwiYWdncmVnYXRpb25UeXBlIjoib2hsYyIsImNoYXJ0U2NhbGUiOiJsaW5lYXIiLCJwYW5lbHMiOnsiY2hhcnQiOnsicGVyY2VudCI6MSwiZGlzcGxheSI6IkFBUEwiLCJjaGFydE5hbWUiOiJjaGFydCIsImluZGV4IjowLCJ5QXhpcyI6eyJuYW1lIjoiY2hhcnQiLCJwb3NpdGlvbiI6bnVsbH0sInlheGlzTEhTIjpbXSwieWF4aXNSSFMiOlsiY2hhcnQiLCLigIx2b2wgdW5kcuKAjCJdfX0sInNldFNwYW4iOm51bGwsImxpbmVXaWR0aCI6Miwic3RyaXBlZEJhY2tncm91bmQiOnRydWUsImV2ZW50cyI6dHJ1ZSwiY29sb3IiOiIjMDA4MWYyIiwic3RyaXBlZEJhY2tncm91ZCI6dHJ1ZSwicmFuZ2UiOm51bGwsInN5bWJvbHMiOlt7InN5bWJvbCI6IkFBUEwiLCJzeW1ib2xPYmplY3QiOnsic3ltYm9sIjoiQUFQTCIsInF1b3RlVHlwZSI6IkVRVUlUWSIsImV4Y2hhbmdlVGltZVpvbmUiOiJBbWVyaWNhL05ld19Zb3JrIn0sInBlcmlvZGljaXR5IjoxLCJpbnRlcnZhbCI6NSwidGltZVVuaXQiOiJtaW51dGUiLCJzZXRTcGFuIjpudWxsfV0sImV2ZW50TWFwIjp7ImNvcnBvcmF0ZSI6eyJkaXZzIjp0cnVlLCJzcGxpdHMiOnRydWV9LCJzaWdEZXYiOnt9fSwiY3VzdG9tUmFuZ2UiOm51bGwsInN0dWRpZXMiOnsi4oCMdm9sIHVuZHLigIwiOnsidHlwZSI6InZvbCB1bmRyIiwiaW5wdXRzIjp7ImlkIjoi4oCMdm9sIHVuZHLigIwiLCJkaXNwbGF5Ijoi4oCMdm9sIHVuZHLigIwifSwib3V0cHV0cyI6eyJVcCBWb2x1bWUiOiIjMDBiMDYxIiwiRG93biBWb2x1bWUiOiIjZmYzMzNhIn0sInBhbmVsIjoiY2hhcnQiLCJwYXJhbWV0ZXJzIjp7IndpZHRoRmFjdG9yIjowLjQ1LCJjaGFydE5hbWUiOiJjaGFydCIsInBhbmVsTmFtZSI6ImNoYXJ0In19fX0-"
+
+def sentiment_analysis(request, ticker):
+    if isValidTicker(ticker):
+        #check if stream thread is running
+        list_of_threads = threading.enumerate()
+        streaming = False
+        for thread in list_of_threads:
+            if thread.name == "stream_thread":
+                streaming = True
+                break
+
+        if not streaming:
+            stream_thread = threading.Thread(target=fetch_and_stream_tweets, name="stream_thread", args=(ticker, "AAAAAAAAAAAAAAAAAAAAADpLZgEAAAAA58cu%2Bxrb8qCNT57oA%2FNYwbjNWvs%3DgdnlVLtp4RgYXXpMbBSYSlmp69CfrW81pH4mCg6zwLTe1VLmWF"))
+            stream_thread.start()
+
+            time.sleep(5)
+            stock = Stock.objects.get(ticker=ticker)
             
-            #check if stream thread is running
-            list_of_threads = threading.enumerate()
-            streaming = False
-            for thread in list_of_threads:
-                if thread.name == "stream_thread":
-                    streaming = True
-                    break
-
-            if not streaming:
-                stream_thread = threading.Thread(target=fetch_and_stream_tweets, name="stream_thread", args=(ticker, "AAAAAAAAAAAAAAAAAAAAADpLZgEAAAAA58cu%2Bxrb8qCNT57oA%2FNYwbjNWvs%3DgdnlVLtp4RgYXXpMbBSYSlmp69CfrW81pH4mCg6zwLTe1VLmWF"))
-                stream_thread.start()
-
-                time.sleep(5)
-                stock = Stock.objects.get(ticker=ticker)
-               
-                #create piechart
-                graph = create_graph(stock)
-                return render(request, 'myapp/cta.html', {
-                    'pos': stock.positive_tweets,
-                    'neg': stock.negative_tweets,
-                    'ticker': ticker,
-                    'graph':graph,
-                    'stockUrl':stockUrl,
-                    }
-                )
-            else:
-                stock = Stock.objects.get(ticker=ticker)
-                #create piechart
-                graph = create_graph(stock)
-                return render(request, 'myapp/cta.html', {
-                    'pos': stock.positive_tweets,
-                    'neg': stock.negative_tweets,
-                    'ticker': ticker,
-                    'graph':graph,
-                    'stockUrl':stockUrl,
-                
-                    }
-                )
-        # invalid ticker
+            #create piechart
+            graph = create_graph(stock)
+            return {
+                'pos': stock.positive_tweets,
+                'neg': stock.negative_tweets,
+                'ticker': ticker,
+                'graph':graph,
+                }
         else:
-            messages.error(request,'True')
-            return redirect('home')
+            stock = Stock.objects.get(ticker=ticker)
+            #create piechart
+            graph = create_graph(stock)
+            return {
+                'pos': stock.positive_tweets,
+                'neg': stock.negative_tweets,
+                'ticker': ticker,
+                'graph':graph,
+                }
+    # invalid ticker
+    else:
+        messages.error(request, 'Invalid ticker symbol. Please try again.')
+        return None
+    
+def fetch_stock_chart_data(ticker):
+    api_key = 'HDF291TIVVGY7UDU'  # Replace with your API key
+
+    # Fetch stock data from Alpha Vantage
+    base_url = "https://www.alphavantage.co/query?"
+    function = "TIME_SERIES_INTRADAY"
+    interval = "5min"  # Set the time interval for data points, e.g. 5min, 15min, 30min, etc.
+    outputsize = "compact"  # Change to 'full' for more data points
+    datatype = "json"
+
+    url = f"{base_url}function={function}&symbol={ticker}&interval={interval}&apikey={api_key}&outputsize={outputsize}&datatype={datatype}"
+    response = requests.get(url)
+    data = json.loads(response.text)
+
+    # Prepare data for the chart
+    timeseries = data[f'Time Series ({interval})']
+    dates = []
+    prices = []
+    for date, price_info in timeseries.items():
+        dates.append(date)
+        prices.append(float(price_info['4. close']))
+
+    return {'dates': dates[::-1], 'prices': prices[::-1], 'ticker': ticker}
+
+def cta(request):
+    context = {}
+
+    if request.method == 'POST':
+        ticker = request.POST['ticker']
+        sentiment_data = sentiment_analysis(request, ticker)
+        if sentiment_data is not None:
+            context.update(sentiment_data)
+
+        stock_chart_data = fetch_stock_chart_data(ticker)
+        context.update(stock_chart_data)
+
+        return render(request, 'myapp/cta.html', context)
+    
     # handle other types of requests besides POST
     else:
         # AJAX request
