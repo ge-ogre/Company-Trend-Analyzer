@@ -10,6 +10,7 @@ from .twitter_stock import *
 import threading
 from .tickerValidation import *
 import plotly.express as px
+from . getStockTable import *
 
 # Create your views here.
 def home(request):
@@ -35,21 +36,25 @@ def sentiment_analysis(request, ticker):
             
             #create piechart
             graph = create_graph(stock)
+            stockTable = get_stock_info(ticker)
             return {
                 'pos': stock.positive_tweets,
                 'neg': stock.negative_tweets,
                 'ticker': ticker,
                 'graph':graph,
+                'stockTable': stockTable,
                 }
         else:
             stock = Stock.objects.get(ticker=ticker)
             #create piechart
             graph = create_graph(stock)
+            stockTable = get_stock_info(ticker)
             return {
                 'pos': stock.positive_tweets,
                 'neg': stock.negative_tweets,
                 'ticker': ticker,
                 'graph':graph,
+                'stockTable': stockTable,
                 }
     # invalid ticker
     else:
