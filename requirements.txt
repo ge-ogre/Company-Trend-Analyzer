@@ -3,3 +3,4 @@ requests
 nltk
 plotly
 ajax
+prettytable
