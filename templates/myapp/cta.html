@@ -1,5 +1,11 @@
 <!DOCTYPE html>
 
+<!-- Include jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Load the HTMX JS: -->
+<script src="/static/htmx.min.js" defer></script>
+
+
 <html>
     <head>
         <meta charset="utf-8">
@@ -13,11 +19,12 @@
     <body>
         <h1>Company Trends</h1>
         <a href="{{stockUrl}}">{{ticker}} Live Stock Graph</a> 
-        
-        <h1>Positive: {{pos}}</h1>
-        <h1>Negative: {{neg}}</h1>
-        <div>
-            {{ graph| safe}}
+        <div hx-get="/cta" hx-trigger="every 10s" hx-vals="{ 'ticker': '{{ ticker }}' }">
+            <h1>Positive: {{pos}}</h1>
+            <h1>Negative: {{neg}}</h1>
+            <div>
+                {{ graph| safe}}
+            </div>
         </div>
         
         <script>
