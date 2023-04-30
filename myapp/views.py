@@ -18,51 +18,49 @@ def home(request):
 
 
 def sentiment_analysis(request, ticker):
-    if isValidTicker(ticker):
-        #check if stream thread is running
-        list_of_threads = threading.enumerate()
-        streaming = False
-        for thread in list_of_threads:
-            if thread.name == "stream_thread":
-                streaming = True
-                break
-
-        if not streaming:
-            stream_thread = threading.Thread(target=fetch_and_stream_tweets, name="stream_thread", args=(ticker, "AAAAAAAAAAAAAAAAAAAAADpLZgEAAAAA58cu%2Bxrb8qCNT57oA%2FNYwbjNWvs%3DgdnlVLtp4RgYXXpMbBSYSlmp69CfrW81pH4mCg6zwLTe1VLmWF"))
-            stream_thread.start()
-
-            time.sleep(5)
-            stock = Stock.objects.get(ticker=ticker)
-            
-            #create piechart
-            graph = create_graph(stock)
-            stockTable = get_stock_info(ticker)
-            return {
-                'pos': stock.positive_tweets,
-                'neg': stock.negative_tweets,
-                'ticker': ticker,
-                'graph':graph,
-                'stockTable': stockTable,
-                }
-        else:
-            stock = Stock.objects.get(ticker=ticker)
-            #create piechart
-            graph = create_graph(stock)
-            stockTable = get_stock_info(ticker)
-            return {
-                'pos': stock.positive_tweets,
-                'neg': stock.negative_tweets,
-                'ticker': ticker,
-                'graph':graph,
-                'stockTable': stockTable,
-                }
-    # invalid ticker
-    else:
-        messages.error(request, 'True')
-        redirect('home')
-        return None
     
+    #check if stream thread is running
+    list_of_threads = threading.enumerate()
+    streaming = False
+    for thread in list_of_threads:
+        if thread.name == "stream_thread":
+            streaming = True
+            break
+
+    if not streaming:
+        stream_thread = threading.Thread(target=fetch_and_stream_tweets, name="stream_thread", args=(ticker, "AAAAAAAAAAAAAAAAAAAAADpLZgEAAAAA58cu%2Bxrb8qCNT57oA%2FNYwbjNWvs%3DgdnlVLtp4RgYXXpMbBSYSlmp69CfrW81pH4mCg6zwLTe1VLmWF"))
+        stream_thread.start()
+
+        time.sleep(5)
+        stock = Stock.objects.get(ticker=ticker)
+            
+        #create piechart
+        graph = create_graph(stock)
+        stockTable = get_stock_info(ticker)
+        return {
+            'pos': stock.positive_tweets,
+            'neg': stock.negative_tweets,
+            'ticker': ticker,
+            'graph':graph,
+            'stockTable': stockTable,
+            }
+    else:
+        stock = Stock.objects.get(ticker=ticker)
+        #create piechart
+        graph = create_graph(stock)
+        stockTable = get_stock_info(ticker)
+        return {
+            'pos': stock.positive_tweets,
+            'neg': stock.negative_tweets,
+            'ticker': ticker,
+            'graph':graph,
+            'stockTable': stockTable,
+            }
+    
+   
+   
 def fetch_stock_chart_data(ticker):
+
     api_key = 'HDF291TIVVGY7UDU'  # Replace with your API key
 
     # Fetch stock data from Alpha Vantage
@@ -100,14 +98,19 @@ def cta(request):
 
     if request.method == 'POST':
         ticker = request.POST['ticker']
-        sentiment_data = sentiment_analysis(request, ticker)
-        if sentiment_data is not None:
-            context.update(sentiment_data)
+        if isValidTicker(ticker):
+            sentiment_data = sentiment_analysis(request, ticker)
+            if sentiment_data is not None:
+                context.update(sentiment_data)
 
-        stock_chart_data = fetch_stock_chart_data(ticker)
-        context.update(stock_chart_data)
+            stock_chart_data = fetch_stock_chart_data(ticker)
+            context.update(stock_chart_data)
 
-        return render(request, 'myapp/cta.html', context)
+            return render(request, 'myapp/cta.html', context)
+        else:
+            #invalid ticker, redirect home with error message
+            messages.error(request, 'True')
+            return redirect('home')
     
     # handle other types of requests besides POST
     else:
