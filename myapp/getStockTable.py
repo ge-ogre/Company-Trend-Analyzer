@@ -4,7 +4,7 @@ from prettytable import PrettyTable
 import re
 
 # Replace YOUR_API_KEY with your actual Alpha Vantage API key
-API_KEY = "HDF291TIVVGY7UDU"
+API_KEY = "Your API key"
 
 def get_stock_info(stock_symbol):
     url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={stock_symbol}&apikey={API_KEY}"
